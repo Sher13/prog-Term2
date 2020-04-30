@@ -1,4 +1,3 @@
-; review
 (defn constant [v] (fn [a] v))
 (defn variable [v] #(get %1 v))
 (defn oper [f args] (fn [vars] (apply f (mapv (fn [x] (x vars)) args))))
