@@ -1,4 +1,3 @@
-; review
 (defn checkers [f] (fn [& v] (every? identity (mapv f v))))
 (defn checkVectors [& v] (apply == (mapv count v)))
 (defn isVector [a] (and (vector? a) (apply (checkers number?) a)))
