@@ -1,2 +1,1 @@
-#Programming homework. ITMO Term2
-
+# Programming homework. ITMO Term2
