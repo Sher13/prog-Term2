@@ -1,3 +1,2 @@
-Homework
+#Programming homework. ITMO Term2
 
-*fix later*
