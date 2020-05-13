@@ -66,14 +66,18 @@
                                                                    (if (= (_f this) x) (Constant 1) (Constant 0)))}))
 
 (def Multiply)
+(defn difr[f] (fn [x & args]
+                (let[fo (partial f x)]
+                  (if (= (count args) 2) (apply fo args )
+                                         (fo (first args) (apply Multiply (rest args)))))))
 (def Add (partial Opers + "+"
                   (fn[x & args] (apply Add (mapv #(diff % x) args)))))
 (def Multiply (partial Opers * "*"
-                       (fn[x a b] (Add (Multiply a (diff b x)) (Multiply b (diff a x))))))
+                       (difr (fn[x a b] (Add (Multiply a (diff b x)) (Multiply b (diff a x)))))))
 (def Subtract (partial Opers - "-"
                        (fn[x & args] (apply Subtract (mapv #(diff % x) args)))))
 (def Divide (partial Opers (fn[& args] (reduce #(/ (double %1) (double %2)) args)) "/"
-                     (fn[x a b] (Divide (Subtract (Multiply  (diff a x) b) (Multiply a (diff b x))) (Multiply b b)))))
+                     (difr (fn[x a b] (Divide (Subtract (Multiply  (diff a x) b) (Multiply a (diff b x))) (Multiply b b))))))
 (def Negate (partial Opers (fn[a] (- a)) "negate"
                      (fn[x a] (Negate (diff a x)))))
 
