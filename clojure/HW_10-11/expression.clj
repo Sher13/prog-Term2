@@ -1,14 +1,16 @@
-; review
+; HW10 - review
+; HW11 - delay
 
 ; Parser for two homeworks at the end file
 
 ; HW 10
 (defn constant [v] (fn [a] v))
 (defn variable [v] #(get %1 v))
-(defn oper [f args] (fn [vars] (apply f (mapv (fn [x] (x vars)) args))))
-(defn add [& a] (oper + a))
-(defn subtract [& a] (oper - a))
-(defn multiply [& a] (oper * a))
+(defn oper [f] (fn[& args] (fn [vars] (apply f (mapv (fn [x] (x vars)) args)))))
+(def add (oper +))
+(def subtract (oper -))
+(def multiply (oper *))
+(comment ":NOTE: do not pass variables values explicitly (copy-paste)")
 (defn divide [& a] (fn[vars] (reduce #(/ (double %1) (double %2))  (mapv #(%1 vars) a))))
 (defn negate [a] (fn[vars] (- (a vars))))
 (defn med[& a] (fn[vars] (#(nth (sort %1) (quot (count a) 2)) (mapv #(%1 vars) a))))
@@ -47,40 +49,44 @@
    :toString (fn[this] (str "(" (_c this) (apply str
                                                      (mapv (fn[x] (str " " (toString x))) (_args this))) ")"))
    :diff (fn[this x] (apply (partial (_difr this) x) (_args this)))})
-(defn OperCons [this f c difr & args]
-  (assoc this
-    :f f
-    :c c
-    :difr difr
-    :args args))
+(defn OperCons [this f c difr ]
+  (fn[& args] (assoc (assoc this
+                       :f f
+                       :c c
+                       :difr difr
+                       :args args) :args args)))
 
-(def Opers (constructor OperCons OperProto))
-(def Constant (constructor (fn[this f] (assoc this :f f)) {
-                                                           :evaluate (fn[this vars] (_f this))
-                                                           :toString (fn [this] (format "%.1f" (_f this)))
-                                                           :diff (fn [this x] (Constant 0))}))
-(def Variable (constructor (fn[this f] (assoc this :f f)) {
-                                                           :evaluate (fn[this vars] (get vars (_f this)))
-                                                           :toString (fn[this] (_f this))
-                                                           :diff (fn [this x]
-                                                                   (if (= (_f this) x) (Constant 1) (Constant 0)))}))
+(defn Opers[a b c]  ((constructor OperCons OperProto) a b c))
+(def consDigit (fn[this f] (assoc this :f f)))
+(def Constant (constructor  consDigit {
+                                       :evaluate (fn[this vars] (_f this))
+                                       :toString (fn [this] (format "%.1f" (_f this)))
+                                       :diff (fn [this x] (Constant 0))}))
+(def Variable (constructor consDigit {
+                                      :evaluate (fn[this vars] (get vars (_f this)))
+                                      :toString (fn[this] (_f this))
+                                      :diff (fn [this x]
+                                              (if (= (_f this) x) (Constant 1) (Constant 0)))}))
 
 (def Multiply)
 (defn difr[f] (fn [x & args]
                 (let[fo (partial f x)]
                   (if (= (count args) 2) (apply fo args )
                                          (fo (first args) (apply Multiply (rest args)))))))
-(def Add (partial Opers + "+"
+(def Add (Opers + "+"
                   (fn[x & args] (apply Add (mapv #(diff % x) args)))))
-(def Multiply (partial Opers * "*"
+(def Multiply (Opers * "*"
                        (difr (fn[x a b] (Add (Multiply a (diff b x)) (Multiply b (diff a x)))))))
-(def Subtract (partial Opers - "-"
+(def Subtract (Opers - "-"
                        (fn[x & args] (apply Subtract (mapv #(diff % x) args)))))
-(def Divide (partial Opers (fn[& args] (reduce #(/ (double %1) (double %2)) args)) "/"
+(def Divide (Opers (fn[& args] (reduce #(/ (double %1) (double %2)) args)) "/"
                      (difr (fn[x a b] (Divide (Subtract (Multiply  (diff a x) b) (Multiply a (diff b x))) (Multiply b b))))))
-(def Negate (partial Opers (fn[a] (- a)) "negate"
+(def Negate (Opers  #(- %) "negate"
                      (fn[x a] (Negate (diff a x)))))
-
+(def Sum (fn[& args] (assoc (Add (Constant 0))
+                       :c "sum" :args args)))
+(def Avg (Opers (fn[& args] (double (/ (apply + args) (count args)))) "avg"
+                (fn[x & args] (diff (Divide (apply Add args) (Constant (count args))) x))))
 ; Parser
 
 (def OPERS {
@@ -97,7 +103,9 @@
                 '- Subtract
                 '* Multiply
                 '/ Divide
-                'negate Negate})
+                'negate Negate
+                'sum Sum
+                'avg Avg})
 (def Operators (vector OPERS OPERS_OBJ))
 
 (defn parseDigits [x fl]
