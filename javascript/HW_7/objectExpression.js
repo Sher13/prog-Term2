@@ -1,5 +1,3 @@
-// :NOTE: strict mode is switched off
-
 function create(constructor, evaluate, toString, diff) {
     constructor.prototype.evaluate = evaluate;
     constructor.prototype.toString = toString;
@@ -71,7 +69,6 @@ function createOperation(f, char, difr, count) {
     return constructor;
 };
 
-// :NOTE: arity of operation can be calculated automatically
 const Multiply = createOperation(
     (a,b) => (a*b),
      "*",
@@ -156,3 +153,51 @@ function parse(expression) {
     }
     return stack[stack.length-1];
 }
+function parsePrefix(expression) {
+
+    let ans = outParser(expression);
+    if (expression.length != 0)
+        throw new Error("Non end exception");
+}
+function check(number) {
+    let fl = 0;
+    for (let i = 0; i < number.length; i++) {
+        if (!((number.charCodeAt(i) >= 48 && number.charCodeAt(i) <= 57) || (number.charAt(i) == '.')) || (number.charAt(i) == '.' && fl == 1))
+            return false;
+        if (number.charAt(i) == '.')
+            fl = 1;
+    }
+    return true;
+}
+const SPEC_SYMBOLS = ['*','/','+','-'];
+function getOperators(source) {
+    let op = "";
+    if (SPEC_SYMBOLS.includes(source.charAt(0))) {
+        while (SPEC_SYMBOLS.includes(source.charAt(0))) {
+            op += source.charAt(0);
+
+        }
+        return op;
+    }
+    if (source.charAt(0).match(/[a-z]/) != null) {
+        while (source.charAt(0).match(/[a-z]/) != null) {
+            op += source.charAt(0);
+            source = source.substr(1);
+        }
+        return op;
+    }
+}
+function outParser(source) {
+    source.trim();
+    if (source.charAt(0) == '(') {
+        source = source.substr(1);
+        let ans = outParser(source);
+        if (source.charAt(0) != ')')
+            throw new Error("Non closest brackets");
+        source = source.substr(1);
+        return ans;
+    }
+    let op = getOperators(source);
+
+}
+

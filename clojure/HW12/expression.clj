@@ -1,8 +1,3 @@
-; HW10 - review
-; HW11 - nothing
-; HW12 - delay
-
-; Parser for two homeworks at the end file
 
 ; HW 10
 (defn constant [v] (constantly v))
@@ -12,7 +7,6 @@
 (def add (easy_op +))
 (def subtract (easy_op -))
 (def multiply (easy_op *))
-(comment ":NOTE: do not pass variables values explicitly (copy-paste)")
 (def divide (oper (partial reduce #(/ (double %1) (double %2)))))
 (def negate (easy_op -))
 (def med (oper #(nth (sort %) (quot (count %) 2))))
@@ -50,18 +44,17 @@
 (def OperProto
   {:evaluate (fn[this vars] (apply (_f this) (mapv (fn [x] (evaluate x vars)) (_args this))))
    :toString (fn[this] (str "(" (_c this) (apply str
-                                                     (mapv (fn[x] (str " " (toString x))) (_args this))) ")"))
+                                                 (mapv (fn[x] (str " " (toString x))) (_args this))) ")"))
    :toStringInfix (fn[this] (if (= 2 (count (_args this))) (str "(" (toStringInfix (first (_args this))) " " (_c this) " " (toStringInfix (last (_args this))) ")")
                                                            (str (_c this) "(" (toStringInfix (first (_args this))) ")")))
-   :diff (fn[this x] (apply (partial (_difr this) x) (_args this)))})
+   :diff (fn[this x] ((_difr this) (_args this) (mapv diff (_args this) (mapv (constantly x) (_args this)))))})
 (defn OperCons [this f c difr ]
   (fn[& args] (assoc (assoc this
                        :f f
                        :c c
                        :difr difr) :args args)))
 
-(comment ":NOTE: bad names of arguments")
-(defn Opers[a b c]  ((constructor OperCons OperProto) a b c))
+(defn Opers[f name diff]  ((constructor OperCons OperProto) f name diff))
 (def consDigit (fn[this f] (assoc this :f f)))
 (def Constant (constructor  consDigit {
                                        :evaluate (fn[this vars] (_f this))
@@ -75,26 +68,26 @@
                                       :diff (fn [this x]
                                               (if (= (_f this) x) (Constant 1) (Constant 0)))}))
 
-(def Multiply)
-(defn difr[f] (fn [x & args]
-                (let[fo (partial f x)]
-                  (if (= (count args) 2) (apply fo args )
-                                         (fo (first args) (apply Multiply (rest args)))))))
-(comment ":NOTE: copy-pasted code for `diff` (at least call for `diff` of operands in each declaration)")
+(declare Multiply)
+(defn DifMultiply[args args'] (mapv #(apply (partial Multiply (nth args' %))
+                                            (concat (take % args) (take-last (- (count args) % 1) args))) (range 0 (count args))))
+
 (def Add (Opers + "+"
-                  (fn[x & args] (apply Add (mapv #(diff % x) args)))))
+                #(apply Add %2)))
 (def Multiply (Opers * "*"
-                       (difr (fn[x a b] (Add (Multiply a (diff b x)) (Multiply b (diff a x)))))))
+                     #(apply Add (DifMultiply %1 %2))))
 (def Subtract (Opers - "-"
-                       (fn[x & args] (apply Subtract (mapv #(diff % x) args)))))
+                     #(apply Subtract %2)))
 (def Divide (Opers (fn[& args] (reduce #(/ (double %1) (double %2)) args)) "/"
-                     (difr (fn[x a b] (Divide (Subtract (Multiply  (diff a x) b) (Multiply a (diff b x))) (Multiply b b))))))
+                    #(Divide (apply Subtract (DifMultiply %1 %2))
+                             (Multiply (apply Multiply (rest %1)) (apply Multiply (rest %1))))))
 (def Negate (Opers  #(- %) "negate"
-                     (fn[x a] (Negate (diff a x)))))
+                      #(apply Negate %2)))
 (def Sum (fn[& args] (assoc (Add (Constant 0))
                        :c "sum" :args args)))
 (def Avg (Opers (fn[& args] (double (/ (apply + args) (count args)))) "avg"
-                (fn[x & args] (diff (Divide (apply Add args) (Constant (count args))) x))))
+               #(Divide (apply Add %2) (Constant (count %1)))))
+
 (def Pow (Opers #(Math/pow %1 %2) "**" nil))
 (def Log (Opers #(/  (double (Math/log (Math/abs %2)))  (double (Math/log (Math/abs %1)))) "//" nil))
 
@@ -218,44 +211,53 @@
 (defn or_string [args] (apply +or
                               (mapv #(+string (str %))  args)))
 
-(def OPERS1 {
-             '+ Add
-             '- Subtract})
-
-(def OPERS2 {
+(def OPERS [
+            [{
+              '** Pow
+              (symbol "//") Log} 0]
+            [{
              '* Multiply
-             '/ Divide})
-(def OPERS3 {
-             '** Pow
-             (symbol "//") Log})
+             '/ Divide} 1]
+            [{
+              '+ Add
+             '- Subtract} 1]])
 
-(def Un_Opers {
+(def UNARY {
                'negate Negate})
 
-(def *Opers1 (+seqf  #(get OPERS1 (symbol (apply str %))) (or_string (keys OPERS1))))
-(def *Opers2 (+seqf  #(get OPERS2 (symbol (apply str %))) (or_string (keys OPERS2))))
-(def *Opers3 (+seqf  #(get OPERS3 (symbol (apply str %))) (or_string (keys OPERS3))))
-(def *OpersUn (+seqf  #(get Un_Opers (symbol (apply str %))) (or_string (keys Un_Opers))))
+(defn setOpers[maps] (+seqf  #(get maps (symbol (apply str %))) (or_string (keys maps))))
+
+(def *Unary (setOpers UNARY))
 (def *Vars (+seqf #(Variable (apply str %)) (or_string ['x 'y 'z])))
 (def *Const (+seqf #(Constant %) *double))
 (def *Ones (+or *Const *Vars ))
-
 (def *arg (+seqf identity *ws *Ones *ws))
-(defn f[a b]  (if (empty? b) a
+(defn left[a b]  (if (empty? b) a
                              (reduce #((first %2) %1 (last %2)) (concat [a] b))))
-(defn fx[a b] (if (empty? b) a
-                             (let [c (concat [a] (flatten b))]
-                               (letfn[(req[a] (if (= 1(count a)) (first a) ((nth a 1) (first a) (req (rest (rest a))))))]
-                                 (req c)))))
-(defn Un_f[a b] (a b))
+(defn right[a b] (if (empty? b) a
+                             (letfn [(f[op b a] (op a b))]
+                               ((reduce #(partial f (first %2) (%1 (last %2))) (concat [identity] (reverse b))) a))))
+(defn unary[a b] (a b))
 (defn after[op arg] (+star (+seqf (fn[& a] (flatten a)) *ws op arg)))
+
 (declare *expr)
-(def *dg (+or *arg
-             (+seqf Un_f *ws *OpersUn *ws (delay *dg))
+
+(def *base (+or *arg
+             (+seqf unary *ws *Unary *ws (delay *base))
              (+seqn 1 (+seq *ws (+char "(") *ws) (delay *expr) (+seq *ws (+char ")") *ws))))
-(def *f (+seqf fx *dg (after *Opers3 *dg)))
-(def *t (+seqf f *f (after *Opers2 *f)))
-(def *expr (+seqf f *t (after *Opers1 *t)))
+(def ASSOCIATES {0 right
+                 1 left})
+
+(defn setLevels[n] (if (= n -1) *base
+                               (let [n' (dec n)
+                                     level (nth OPERS n)
+                                     associate (get ASSOCIATES (last level))
+                                     *Opers (setOpers (first level))
+                                     *next (setLevels n')]
+                                 (+seqf associate *next (after *Opers *next)))))
+
+(def *expr (setLevels 2))
+
 
 (defn parseObjectInfix[expr] ((_parser *expr) expr))
 

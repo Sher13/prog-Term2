@@ -7,7 +7,7 @@
                          (and (apply (checkers vector?) a) (apply checkVectors a) (apply isTensor (apply concat [] a)))))
 (defn oper [f is v]
   { :pre  [(apply (checkers is) v) (apply checkVectors v)]} (apply mapv f v))
-(comment ":NOTE: copy-paste code (at least `[& v]` and `oper + v`)")
+
 (defn oper_v[f] (fn[& v] (oper f isVector v)))
 (def v+ (oper_v +))
 (def v* (oper_v *))
@@ -16,7 +16,7 @@
   { :pre [(isVector a) (apply (checkers number?) b)]}
   (let [c (apply * b)]
     (mapv (fn [x] (* x c)) a)))
-(comment ":NOTE: you already have element-wise productions for vectors, use it")
+    
 (defn scalar [a b]
   { :pre [(isVector a) (isVector b) (checkVectors a b)]}
   (apply + (v* a b)))
@@ -38,9 +38,7 @@
 (defn transpose [a]
   { :pre [isMatrix a]}
   (apply mapv vector a))
-(comment ":NOTE: `mm` should be declared as internal function")
-(comment ":NOTE: too many transposes")
-(comment ":NOTE: contract is missed")
+  
 (defn m*m [& m]
   (letfn[(mm [a b]
            {:pre [(isMatrix a) (isMatrix b)]}

@@ -12,7 +12,6 @@ const variable = (name) => (...vals) => {
 const operation = op => {
     let f = (...args) => (...vals) => {
         let a = [];
-        // :NOTE: cycle `for` is too fat for JS, try to use `[].map`
         for (let i = 0; i < args.length; i++) {
             a.push(args[i](...vals));
         }
@@ -37,7 +36,6 @@ const med3 = operation((a,b,c) => {
 });
 const pi = cnst(Math.PI);
 const e = cnst(Math.E);
-// :NOTE: why this and next are not const?
 let OPERS = [];
 OPERS["+"] = add;
 OPERS["-"] = subtract;
@@ -76,6 +74,5 @@ function parse(expression) {
         }
         stack.push(cnst(parseFloat(expre[i])));
     }
-    // console.log(stack);
     return stack[stack.length-1];
 }
